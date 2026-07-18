@@ -72,7 +72,7 @@ class FaceVoiceService:
     @staticmethod
     def _random_digits() -> str:
         while True:
-            digits = "".join(str(secrets.randbelow(10)) for _ in range(6))
+            digits = "".join(str(secrets.randbelow(6) + 1) for _ in range(6))
             if len(set(digits)) >= 3:
                 return digits
 
