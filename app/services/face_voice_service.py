@@ -144,7 +144,7 @@ class FaceVoiceService:
             "instruction": "Har digit ko alag-alag Hindi ya English mein bolo",
         }
 
-    def _consume_challenge(self, challenge_id: str, branch_id: str, kiosk_pin: str) -> FaceVoiceChallenge:
+    def _get_open_challenge(self, challenge_id: str, branch_id: str, kiosk_pin: str) -> FaceVoiceChallenge:
         branch = self.face_service._kiosk_branch(branch_id, kiosk_pin)
         now = datetime.utcnow()
         challenge = FaceVoiceChallenge.objects(
@@ -152,10 +152,20 @@ class FaceVoiceService:
             branch_id=branch,
             used=False,
             expires_at__gt=now,
-        ).modify(new=True, set__used=True, set__used_at=now)
+        ).first()
         if challenge is None:
             raise HTTPException(status_code=400, detail="Challenge expired, invalid ya already used hai")
         return challenge
+
+    @staticmethod
+    def _consume_challenge(challenge: FaceVoiceChallenge) -> None:
+        consumed = FaceVoiceChallenge.objects(
+            id=challenge.id,
+            used=False,
+            expires_at__gt=datetime.utcnow(),
+        ).modify(new=True, set__used=True, set__used_at=datetime.utcnow())
+        if consumed is None:
+            raise HTTPException(status_code=400, detail="Challenge expired, invalid ya already used hai")
 
     def verify_and_punch(
         self,
@@ -164,7 +174,7 @@ class FaceVoiceService:
         kiosk_pin: str,
         audio_bytes: bytes,
     ) -> dict[str, Any]:
-        challenge = self._consume_challenge(challenge_id, branch_id, kiosk_pin)
+        challenge = self._get_open_challenge(challenge_id, branch_id, kiosk_pin)
         employee = challenge.employee_id
         self._ensure_employee_assigned_to_branch(employee, challenge.branch_id)
         profile = EmployeeVoiceProfile.objects(employee_id=employee).first()
@@ -176,6 +186,7 @@ class FaceVoiceService:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
         if not voice["verified"]:
             raise HTTPException(status_code=401, detail={"success": False, **voice})
+        self._consume_challenge(challenge)
         attendance = self._commit_punch(employee, challenge.punch_type, challenge.face_confidence)
         return {
             "success": True,

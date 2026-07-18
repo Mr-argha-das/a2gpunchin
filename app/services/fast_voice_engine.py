@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 import secrets
 import shutil
 import subprocess
@@ -259,10 +260,15 @@ class FastVoiceEngine:
     def _parse_digits(text: str) -> str:
         devanagari = {ord("०") + index: str(index) for index in range(10)}
         translated = text.translate(devanagari)
-        direct = "".join(character for character in translated if character.isdigit())
-        if len(direct) == 6:
-            return direct
-        return "".join(WORD_TO_DIGIT.get(token.lower(), "") for token in translated.split())
+        digits: list[str] = []
+        for token in re.findall(r"\d+|[^\s\d]+", translated, flags=re.UNICODE):
+            if token.isdigit():
+                digits.extend(token)
+            else:
+                digit = WORD_TO_DIGIT.get(token.strip(".,;:!?()[]{}'\"").lower())
+                if digit is not None:
+                    digits.append(digit)
+        return "".join(digits)
 
     def verify(self, stored_embedding: Sequence[float], expected_digits: str, audio_bytes: bytes) -> dict[str, Any]:
         if not self.is_ready or self._english_model is None or self._hindi_model is None or self._kaldi_recognizer is None:
@@ -289,9 +295,16 @@ class FastVoiceEngine:
         parsed = [self._parse_digits(english_text), self._parse_digits(hindi_text)]
         digits_match = any(secrets.compare_digest(value, expected_digits) for value in parsed)
         if not digits_match:
+            candidate_future.cancel()
             return {
                 "verified": False,
                 "reason": "spoken_digits_do_not_match",
+                "expected_digits": expected_digits,
+                "recognized": {
+                    "english": english_text,
+                    "hindi": hindi_text,
+                    "parsed": parsed,
+                },
                 "quality": quality,
             }
         candidate = candidate_future.result()
@@ -302,5 +315,11 @@ class FastVoiceEngine:
             "verified": verified,
             "reason": "matched" if verified else "speaker_mismatch",
             "speaker_score": round(speaker_score, 4),
+            "speaker_threshold": round(float(self.speaker_threshold), 4),
+            "recognized": {
+                "english": english_text,
+                "hindi": hindi_text,
+                "parsed": parsed,
+            },
             "quality": quality,
         }
