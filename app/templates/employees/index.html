@@ -1,0 +1,168 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="module-head">
+  <div>
+    <span class="eyebrow">Employee Directory</span>
+    <h2 id="employeeCountLabel">Employees</h2>
+    <p>Add employees, assign branch and shift, and keep face enrollment ready for kiosk-based attendance.</p>
+  </div>
+  <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#employeeModal" data-create-modal="#employeeModal" data-create-title="Employee">Add Employee</button>
+</div>
+
+<div class="insight-strip">
+  <div><span>Required for punch</span><strong>Branch + shift</strong></div>
+  <div><span>Enrollment</span><strong>Flutter kiosk app</strong></div>
+  <div><span>Privacy</span><strong>Essential fields shown first</strong></div>
+</div>
+
+<section class="panel filter-panel">
+  <div class="panel-title">
+    <div><span class="eyebrow">Filters</span><h3>Search employees</h3></div>
+  </div>
+  <form class="row g-2 align-items-end table-filter-form" data-target="#employeesTable">
+    <div class="col-md-5">
+      <label class="form-label">Search</label>
+      <input class="form-control" name="search" placeholder="Name, employee code, email, or phone">
+    </div>
+    <div class="col-md-4">
+      <label class="form-label">Branch</label>
+      <select class="form-select option-loader" name="branch_id" data-source="/api/branches" data-kind="branch">
+        <option value="">All branches</option>
+      </select>
+    </div>
+    <div class="col-md-3">
+      <label class="form-label">Department</label>
+      <select class="form-select option-loader" name="department_id" data-source="/api/departments" data-kind="department">
+        <option value="">All departments</option>
+      </select>
+    </div>
+    <div class="col-md-3">
+      <label class="form-label">Status</label>
+      <select class="form-select" name="status">
+        <option value="">All status</option>
+        <option value="active">Active</option>
+        <option value="inactive">Inactive</option>
+        <option value="terminated">Terminated</option>
+        <option value="transferred">Transferred</option>
+      </select>
+    </div>
+    <div class="col-md-2 d-flex gap-2">
+      <button class="btn btn-primary flex-fill" type="submit">Filter</button>
+      <button class="btn btn-outline-secondary flex-fill" type="reset">Clear</button>
+    </div>
+  </form>
+</section>
+
+<section class="panel table-panel">
+  <div class="panel-title">
+    <div><span class="eyebrow">People</span><h3>Employee roster</h3></div>
+  </div>
+  <div id="employeesTable" class="data-table employee-card-list" data-view="employee-cards" data-api="/api/employees" data-edit-modal="#employeeModal" data-edit-title="Edit Employee" data-page-size="24" data-page-sizes="12,24,48,96">
+    
+  </div>
+</section>
+
+<div class="modal fade" id="employeeViewModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header"><h2 class="modal-title fs-5">Employee Details</h2></div>
+      <div class="modal-body" id="employeeViewBody"></div>
+      <div class="modal-footer"><button class="btn btn-outline-secondary" type="button" data-bs-dismiss="modal">Close</button></div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="employeeDocumentsModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header"><h2 class="modal-title fs-5">Employee Documents</h2></div>
+      <div class="modal-body">
+        <form id="employeeDocumentForm" class="employee-document-form">
+          <div>
+            <label class="form-label">Document Name</label>
+            <input class="form-control" name="document_name" placeholder="Joining form / ID proof / Increment letter" required>
+          </div>
+          <div>
+            <label class="form-label">File</label>
+            <input class="form-control" name="file" type="file" required>
+          </div>
+          <button class="btn btn-primary" type="submit">Upload</button>
+        </form>
+        <div id="employeeDocumentList" class="employee-document-list"></div>
+      </div>
+      <div class="modal-footer"><button class="btn btn-outline-secondary" type="button" data-bs-dismiss="modal">Close</button></div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="employeeModal" tabindex="-1"><div class="modal-dialog modal-lg"><form class="modal-content ajax-form" data-api="/api/employees" data-create-api="/api/employees"><div class="modal-header"><h2 class="modal-title fs-5">Employee</h2></div><div class="modal-body row g-3">
+  <div class="col-12"><h3 class="form-section-title">Basic Information</h3></div>
+  <div class="col-md-3"><label class="form-label">Prefix</label><input class="form-control" name="prefix" placeholder="Mr / Ms"></div>
+  <div class="col-md-3"><label class="form-label">Staff ID</label><input class="form-control" name="employee_code" placeholder="EMP001" required></div>
+  <div class="col-md-3"><label class="form-label">Role</label><select class="form-select" name="staff_role"><option value="">Select</option><option value="employee">Employee</option><option value="tl">TL</option><option value="branch_manager">Manager</option><option value="hr_manager">HR Manager</option><option value="company_admin">Admin</option></select></div>
+  <div class="col-md-3"><label class="form-label">Designation</label><input class="form-control" name="designation" placeholder="Operator"></div>
+  <div class="col-md-3"><label class="form-label">Status</label><select class="form-select" name="status"><option value="active">Active</option><option value="inactive">Inactive</option><option value="terminated">Terminated</option><option value="transferred">Transferred</option></select></div>
+  <div class="col-md-3"><label class="form-label">Department</label><select class="form-select option-loader" name="department_id" data-source="/api/departments" data-kind="department"><option value="">Select department</option></select></div>
+  <div class="col-md-3"><label class="form-label">First Name</label><input class="form-control" name="first_name" placeholder="Rahul" required></div>
+  <div class="col-md-3"><label class="form-label">Last Name</label><input class="form-control" name="last_name" placeholder="Sharma" required></div>
+  <div class="col-md-3"><label class="form-label">Gender</label><select class="form-select" name="gender"><option value="">Select</option><option value="male">Male</option><option value="female">Female</option><option value="other">Other</option><option value="prefer_not_to_say">Prefer Not To Say</option></select></div>
+  <div class="col-12"><h3 class="form-section-title">Contact & Assignment</h3></div>
+  <div class="col-md-3"><label class="form-label">Email (Login Username)</label><input class="form-control" name="email" type="email" placeholder="employee@company.com" required></div>
+  <div class="col-md-3"><label class="form-label">Office Email</label><input class="form-control" name="office_email" type="email" placeholder="office@company.com"></div>
+  <div class="col-md-3"><label class="form-label">Phone</label><input class="form-control" name="phone" placeholder="Phone"></div>
+  <div class="col-md-3"><label class="form-label">Emergency Contact</label><input class="form-control" name="emergency_contact_number" placeholder="Emergency phone"></div>
+  <div class="col-md-3"><label class="form-label">Branch</label><select class="form-select option-loader" name="branch_id" data-source="/api/branches" data-kind="branch"><option value="">Select branch</option></select></div>
+  <div class="col-md-3"><label class="form-label">Shift</label><select class="form-select option-loader" name="shift_id" data-source="/api/shifts" data-kind="shift"><option value="">Select shift</option></select></div>
+  <div class="col-md-3"><label class="form-label">Date of Joining</label><input class="form-control" name="joining_date" type="date"></div>
+  <div class="col-md-3"><label class="form-label">Date of Birth</label><input class="form-control" name="date_of_birth" type="date"></div>
+  <div class="col-12"><h3 class="form-section-title">Banking Details</h3></div>
+  <div class="col-md-4"><label class="form-label">Bank Name</label><input class="form-control" name="bank_name" placeholder="Bank name"></div>
+  <div class="col-md-4"><label class="form-label">Account Number</label><input class="form-control" name="account_number" placeholder="Account number"></div>
+  <div class="col-md-4"><label class="form-label">IFSC Code</label><input class="form-control" name="ifsc_code" placeholder="IFSC code"></div>
+  <div class="col-12"><h3 class="form-section-title">Dashboard Access</h3></div>
+  <div class="col-md-3">
+    <label class="form-label">Allow Login</label>
+    <select class="form-select" name="portal_access">
+      <option value="false">No</option>
+      <option value="true">Yes</option>
+    </select>
+  </div>
+    <div class="col-md-3">
+      <label class="form-label">Dashboard Role</label>
+      <select class="form-select" name="access_level">
+        <option value="employee">Employee Self</option>
+        <option value="tl">TL</option>
+        <option value="manager">Manager</option>
+        <option value="admin">Admin</option>
+      </select>
+    </div>
+  <div class="col-md-3"><label class="form-label">Login Password</label><input class="form-control" name="login_password" type="password" placeholder="Default: Welcome@123" autocomplete="new-password"></div>
+  <div class="col-md-3 d-flex align-items-end"><div class="alert alert-info mb-0 py-2">User will login using Email.</div></div>
+  <div class="col-12">
+    <label class="form-label">Module Permissions</label>
+    <div class="permission-grid">
+      <label><input class="form-check-input" type="checkbox" name="module_access" value="employees"> Employees</label>
+      <label><input class="form-check-input" type="checkbox" name="module_access" value="assets"> Assets</label>
+      <label><input class="form-check-input" type="checkbox" name="module_access" value="attendance"> Live Attendance</label>
+      <label><input class="form-check-input" type="checkbox" name="module_access" value="leaves"> Leave</label>
+      <label><input class="form-check-input" type="checkbox" name="module_access" value="reports"> Reports</label>
+      <label><input class="form-check-input" type="checkbox" name="module_access" value="branches"> Branches</label>
+      <label><input class="form-check-input" type="checkbox" name="module_access" value="departments"> Departments</label>
+      <label><input class="form-check-input" type="checkbox" name="module_access" value="shifts"> Shift Rules</label>
+    </div>
+  </div>
+  <div class="col-12"><h3 class="form-section-title">Additional Details</h3></div>
+  <div class="col-md-3"><label class="form-label">Father Name</label><input class="form-control" name="father_name" placeholder="Father name"></div>
+  <div class="col-md-3"><label class="form-label">Mother Name</label><input class="form-control" name="mother_name" placeholder="Mother name"></div>
+  <div class="col-md-3"><label class="form-label">Marital Status</label><select class="form-select" name="marital_status"><option value="">Select</option><option value="single">Single</option><option value="married">Married</option><option value="divorced">Divorced</option><option value="widowed">Widowed</option></select></div>
+  <div class="col-md-3"><label class="form-label">Photo</label><input class="form-control" name="profile_photo" placeholder="Photo URL / path"></div>
+  <div class="col-md-6"><label class="form-label">Current Address</label><textarea class="form-control" name="current_address" rows="2"></textarea></div>
+  <div class="col-md-6"><label class="form-label">Permanent Address</label><textarea class="form-control" name="permanent_address" rows="2"></textarea></div>
+  <div class="col-md-4"><label class="form-label">Qualification</label><textarea class="form-control" name="qualification" rows="2"></textarea></div>
+  <div class="col-md-4"><label class="form-label">Work Experience</label><textarea class="form-control" name="work_experience" rows="2"></textarea></div>
+  <div class="col-md-4"><label class="form-label">Note</label><textarea class="form-control" name="note" rows="2"></textarea></div>
+  <div class="col-md-6"><label class="form-label">Aadhar Number</label><input class="form-control" name="aadhar_number" placeholder="Aadhar number"></div>
+  <div class="col-md-6"><label class="form-label">PAN Number</label><input class="form-control" name="pan_number" placeholder="PAN number"></div>
+  <div class="col-12"><div class="alert alert-info mb-0">Face enrollment is done from the Flutter kiosk app using this employee code.</div></div>
+</div><div class="modal-footer"><button class="btn btn-primary">Save Employee</button></div></form></div></div>
+{% endblock %}

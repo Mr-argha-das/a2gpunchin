@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="module-head">
+  <div>
+    <span class="eyebrow">Administration</span>
+    <h2>Settings</h2>
+    <p>Configure global defaults that influence attendance calculation, geofence behavior, and reporting context.</p>
+  </div>
+  <button class="btn btn-primary" type="button">Save Settings</button>
+</div>
+
+<div class="settings-grid">
+  <section class="panel settings-panel">
+    <div class="panel-title">
+      <div><span class="eyebrow">Defaults</span><h3>Attendance configuration</h3></div>
+    </div>
+    <div class="row g-3">
+      <div class="col-md-6"><label class="form-label">Default Timezone</label><input class="form-control" value="Asia/Kolkata"></div>
+      <div class="col-md-6"><label class="form-label">Default Radius</label><input class="form-control" value="100"></div>
+    </div>
+  </section>
+
+  <section class="panel settings-panel">
+    <div class="panel-title">
+      <div><span class="eyebrow">Guidance</span><h3>Operational guardrails</h3></div>
+    </div>
+    <div class="settings-list">
+      <div><strong>Timezone</strong><span>Used to display attendance dates and punch times consistently.</span></div>
+      <div><strong>Radius</strong><span>Sets the expected default geofence distance for new branch kiosks.</span></div>
+      <div><strong>Branch overrides</strong><span>Use branch setup when a specific office needs tighter or wider controls.</span></div>
+    </div>
+  </section>
+</div>
+{% endblock %}

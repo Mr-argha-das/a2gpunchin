@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="module-head">
+  <div>
+    <span class="eyebrow">Organization Design</span>
+    <h2>Departments</h2>
+    <p>Maintain the company structure used for employee grouping, reporting, and future workforce analytics.</p>
+  </div>
+  <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#departmentModal">Add Department</button>
+</div>
+
+<div class="insight-strip">
+  <div><span>Used by</span><strong>Employee profiles</strong></div>
+  <div><span>Reporting</span><strong>Department filters</strong></div>
+  <div><span>Best practice</span><strong>Short unique codes</strong></div>
+</div>
+
+<section class="panel table-panel">
+  <div class="panel-title">
+    <div><span class="eyebrow">Directory</span><h3>Department catalog</h3></div>
+  </div>
+  <table class="table table-striped data-table" data-api="/api/departments" data-columns="department_name,department_code,description">
+    <thead><tr><th>Name</th><th>Code</th><th>Description</th></tr></thead>
+  </table>
+</section>
+
+<div class="modal fade" id="departmentModal" tabindex="-1">
+  <div class="modal-dialog">
+    <form class="modal-content ajax-form" data-api="/api/departments">
+      <div class="modal-header"><h2 class="modal-title fs-5">Department</h2></div>
+      <div class="modal-body row g-3">
+        <div class="col-md-7"><label class="form-label">Department Name</label><input class="form-control" name="department_name" placeholder="Operations" required></div>
+        <div class="col-md-5"><label class="form-label">Code</label><input class="form-control" name="department_code" placeholder="OPS" required></div>
+        <div class="col-12"><label class="form-label">Description</label><textarea class="form-control" name="description" placeholder="What this department owns"></textarea></div>
+      </div>
+      <div class="modal-footer"><button class="btn btn-primary">Save Department</button></div>
+    </form>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="module-head">
+  <div>
+    <span class="eyebrow">Workforce Availability</span>
+    <h2>Leave management</h2>
+    <p>Track leave requests, approval state, and upcoming workforce availability alongside attendance operations.</p>
+  </div>
+  <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#leaveModal">Apply Leave</button>
+</div>
+
+<div class="insight-strip">
+  <div><span>Approval flow</span><strong>Manager then HR</strong></div>
+  <div><span>Leave types</span><strong>Casual, sick, earned, WFH</strong></div>
+  <div><span>Impact</span><strong>Attendance planning</strong></div>
+</div>
+
+<section class="panel table-panel">
+  <div class="panel-title">
+    <div><span class="eyebrow">Requests</span><h3>Leave ledger</h3></div>
+  </div>
+  <table class="table table-striped data-table" data-api="/api/leaves" data-columns="employee_id,leave_type,start_date,end_date,total_days,status">
+    <thead><tr><th>Employee</th><th>Type</th><th>Start</th><th>End</th><th>Days</th><th>Status</th></tr></thead>
+  </table>
+</section>
+
+<div class="modal fade" id="leaveModal" tabindex="-1">
+  <div class="modal-dialog">
+    <form class="modal-content ajax-form" data-api="/api/leaves">
+      <div class="modal-header"><h2 class="modal-title fs-5">Leave Request</h2></div>
+      <div class="modal-body row g-3">
+        <div class="col-12"><label class="form-label">Employee ID</label><input class="form-control" name="employee_id" placeholder="Employee object ID" required></div>
+        <div class="col-md-6"><label class="form-label">Leave Type</label><select class="form-select" name="leave_type"><option value="casual">Casual</option><option value="sick">Sick</option><option value="earned">Earned</option><option value="work_from_home">Work From Home</option><option value="half_day">Half Day</option></select></div>
+        <div class="col-md-3"><label class="form-label">Start Date</label><input class="form-control" name="start_date" type="date" required></div>
+        <div class="col-md-3"><label class="form-label">End Date</label><input class="form-control" name="end_date" type="date" required></div>
+        <div class="col-12"><label class="form-label">Reason</label><textarea class="form-control" name="reason" placeholder="Reason for leave"></textarea></div>
+      </div>
+      <div class="modal-footer"><button class="btn btn-primary">Save Leave</button></div>
+    </form>
+  </div>
+</div>
+{% endblock %}

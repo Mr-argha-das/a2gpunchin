@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="module-head">
+  <div>
+    <span class="eyebrow">Reporting</span>
+    <h2>Exports & audit-ready reports</h2>
+    <p>Generate attendance exports for payroll, compliance review, and operations follow-up.</p>
+  </div>
+  <a class="btn btn-primary" href="/api/reports/attendance?fmt=xlsx">Download Excel</a>
+</div>
+
+<div class="report-grid">
+  <section class="panel report-card" id="attendanceExportFilters">
+    <div>
+      <span class="eyebrow">Attendance</span>
+      <h3>Attendance export</h3>
+      <p>Export all employees or filter attendance by date, candidate, branch, and team before downloading payroll-ready records.</p>
+    </div>
+    <form class="report-export-form" action="/api/reports/attendance" method="get" autocomplete="off">
+      <div class="row g-3">
+        <div class="col-md-6">
+          <label class="form-label">From Date</label>
+          <input class="form-control" name="start_date" type="date">
+        </div>
+        <div class="col-md-6">
+          <label class="form-label">To Date</label>
+          <input class="form-control" name="end_date" type="date">
+        </div>
+        <div class="col-md-6">
+          <label class="form-label">Candidate</label>
+          <input type="hidden" name="employee_id" id="reportCandidateId">
+          <input class="form-control option-datalist" name="candidate_search" list="reportCandidateList" placeholder="All employees / search code or name" data-source="/api/employees" data-kind="employee" data-load-all="true" data-hidden-target="#reportCandidateId" autocomplete="off">
+          <datalist id="reportCandidateList"></datalist>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">Branch</label>
+          <select class="form-select option-loader" name="branch_id" data-source="/api/branches" data-kind="branch" data-load-all="true" data-default-value="" autocomplete="off">
+            <option value="">All branches</option>
+          </select>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">Team</label>
+          <select class="form-select option-loader" name="department_id" data-source="/api/departments" data-kind="department" data-load-all="true" data-default-value="" autocomplete="off">
+            <option value="">All teams</option>
+          </select>
+        </div>
+      </div>
+      <div class="report-actions">
+        <button class="btn btn-outline-primary" name="fmt" value="csv" type="submit">CSV</button>
+        <button class="btn btn-primary" name="fmt" value="xlsx" type="submit">Excel</button>
+        <button class="btn btn-outline-primary" name="fmt" value="pdf" type="submit">PDF</button>
+        <button class="btn btn-outline-secondary" type="reset">Clear Filters</button>
+      </div>
+    </form>
+  </section>
+
+  <section class="panel report-card report-card-muted">
+    <div>
+      <span class="eyebrow">Recommended Next</span>
+      <h3>Exception report</h3>
+      <p>Use attendance filters for now to isolate late, rejected, pending, early logout, and auto punch-out records before export.</p>
+    </div>
+    <a class="btn btn-outline-secondary" href="/attendance">Open Attendance</a>
+  </section>
+</div>
+{% endblock %}

@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="module-head">
+  <div>
+    <span class="eyebrow">Tenant Administration</span>
+    <h2>Companies</h2>
+    <p>Provision tenant companies, create their first admin user, and monitor subscription status from one control surface.</p>
+  </div>
+  <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#companyModal">Add Company</button>
+</div>
+
+<div class="insight-strip">
+  <div><span>Primary workflow</span><strong>Tenant onboarding</strong></div>
+  <div><span>Admin account</span><strong>Created automatically</strong></div>
+  <div><span>Default plan</span><strong>Basic</strong></div>
+</div>
+
+<section class="panel table-panel">
+  <div class="panel-title">
+    <div><span class="eyebrow">Directory</span><h3>Company accounts</h3></div>
+  </div>
+  <table class="table table-striped data-table" data-api="/api/companies" data-columns="company_name,company_code,email,subscription_plan,status">
+    <thead><tr><th>Name</th><th>Code</th><th>Email</th><th>Plan</th><th>Status</th></tr></thead>
+  </table>
+</section>
+
+<div class="modal fade" id="companyModal" tabindex="-1">
+  <div class="modal-dialog">
+    <form class="modal-content ajax-form" data-api="/api/companies">
+      <div class="modal-header"><h2 class="modal-title fs-5">Create Company</h2></div>
+      <div class="modal-body row g-3">
+        <div class="col-12"><h3 class="form-section-title">Company Profile</h3></div>
+        <div class="col-md-6"><label class="form-label">Company Name</label><input class="form-control" name="company_name" placeholder="Acme Operations" required></div>
+        <div class="col-md-6"><label class="form-label">Company Code</label><input class="form-control" name="company_code" placeholder="ACME" required></div>
+        <div class="col-md-6"><label class="form-label">Email</label><input class="form-control" name="email" type="email" placeholder="admin@company.com" required></div>
+        <div class="col-md-6"><label class="form-label">Phone</label><input class="form-control" name="phone" placeholder="+91 98765 43210"></div>
+        <div class="col-12"><label class="form-label">Address</label><input class="form-control" name="address" placeholder="Registered office address"></div>
+        <div class="col-12"><h3 class="form-section-title">Initial Company Admin</h3></div>
+        <div class="col-md-6"><label class="form-label">First Name</label><input class="form-control" name="admin_first_name" placeholder="Company" value="Company"></div>
+        <div class="col-md-6"><label class="form-label">Last Name</label><input class="form-control" name="admin_last_name" placeholder="Admin" value="Admin"></div>
+        <div class="col-md-6"><label class="form-label">Admin Email</label><input class="form-control" name="admin_email" type="email" placeholder="admin@company.com"></div>
+        <div class="col-md-6"><label class="form-label">Admin Phone</label><input class="form-control" name="admin_phone" placeholder="+91 98765 43210"></div>
+        <div class="col-12"><label class="form-label">Temporary Password</label><input class="form-control" name="admin_password" type="password" placeholder="Admin password" value="CompanyAdmin123!"></div>
+      </div>
+      <div class="modal-footer"><button class="btn btn-primary">Save Company</button></div>
+    </form>
+  </div>
+</div>
+{% endblock %}

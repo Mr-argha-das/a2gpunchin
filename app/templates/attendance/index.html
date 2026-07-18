@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="module-head">
+  <div>
+    <span class="eyebrow">Live Monitor</span>
+    <h2>Face punch attendance</h2>
+    <p>Review kiosk punches, shift-rule outcomes, rejected records, auto punch-outs, and manual admin corrections in one operational view.</p>
+  </div>
+  <div class="module-actions">
+    <a class="btn btn-outline-primary" href="/api/reports/attendance?fmt=xlsx">Export Excel</a>
+    <a class="btn btn-primary" href="/reports">Reports</a>
+  </div>
+</div>
+
+<div class="insight-strip">
+  <div><span>Source</span><strong>Flutter face kiosk</strong></div>
+  <div><span>Validation</span><strong>GPS geofence + shift rules</strong></div>
+  <div><span>Exceptions</span><strong>Late, rejected, auto punch-out</strong></div>
+</div>
+
+<section class="panel filter-panel">
+  <div class="panel-title">
+    <div><span class="eyebrow">Filters</span><h3>Find attendance records</h3></div>
+  </div>
+  <form class="row g-2 align-items-end table-filter-form" data-target="#attendanceTable">
+    <div class="col-md-2"><label class="form-label">From Date</label><input class="form-control" name="start_date" type="date"></div>
+    <div class="col-md-2"><label class="form-label">To Date</label><input class="form-control" name="end_date" type="date"></div>
+    <div class="col-md-3"><label class="form-label">Employee</label><select class="form-select option-loader" name="employee_id" data-source="/api/employees" data-kind="employee"><option value="">All employees</option></select></div>
+    <div class="col-md-2"><label class="form-label">Branch</label><select class="form-select option-loader" name="branch_id" data-source="/api/branches" data-kind="branch"><option value="">All branches</option></select></div>
+    <div class="col-md-1"><label class="form-label">Status</label><select class="form-select" name="status"><option value="">All</option><option value="approved">Approved</option><option value="rejected">Rejected</option><option value="pending">Pending</option></select></div>
+    <div class="col-md-2 d-flex gap-2"><button class="btn btn-primary flex-fill">Filter</button><button class="btn btn-outline-secondary flex-fill" type="reset">Clear</button></div>
+  </form>
+</section>
+
+<section class="correction-action-bar">
+  <div>
+    <span class="eyebrow">Admin Correction</span>
+    <strong>Manual punch-in / punch-out</strong>
+    <small>Use only when kiosk punching is unavailable.</small>
+  </div>
+  <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#manualPunchModal">Manual Punch</button>
+</section>
+
+<section class="panel table-panel">
+  <div class="panel-title">
+    <div><span class="eyebrow">Records</span><h3>Attendance ledger</h3></div>
+  </div>
+  <table id="attendanceTable" class="table table-striped data-table" data-api="/api/attendance" data-columns="employee,branch,date,check_in_time,check_out_time,status,main_status,in_status,out_status,work_minutes">
+    <thead><tr><th>Employee</th><th>Branch</th><th>Date</th><th>In Time</th><th>Out Time</th><th>Status</th><th>Main Status</th><th>In Status</th><th>Out Status</th><th>Work Hours</th></tr></thead>
+  </table>
+</section>
+
+<div class="modal fade" id="manualPunchModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div>
+          <h2 class="modal-title fs-5">Manual Attendance Correction</h2>
+          <p class="text-muted mb-0 small">Manual corrections use the employee's assigned branch and do not ask for GPS.</p>
+        </div>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="manual-punch-grid">
+          <form id="attendanceForm" class="manual-punch-card">
+            <div>
+              <span class="eyebrow">Punch In</span>
+              <h4>Manual check-in</h4>
+              <p>Uses the employee's assigned branch.</p>
+            </div>
+            <div><label class="form-label">Employee</label><select class="form-select option-loader" name="employee_id" data-source="/api/employees" data-kind="employee" required><option value="">Select employee</option></select></div>
+            <button class="btn btn-secondary w-100">Punch In</button>
+          </form>
+          <form id="manualPunchOutForm" class="manual-punch-card">
+            <div>
+              <span class="eyebrow">Punch Out</span>
+              <h4>Manual check-out</h4>
+              <p>Closes the latest open punch-in.</p>
+            </div>
+            <div><label class="form-label">Employee</label><select class="form-select option-loader" name="employee_id" data-source="/api/employees" data-kind="employee" required><option value="">Select employee</option></select></div>
+            <button class="btn btn-primary w-100">Punch Out</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="dashboard-hero">
+  <div>
+    <span class="eyebrow">Today Command Center</span>
+    <h2>Attendance operations at a glance</h2>
+    <p>Monitor live punches, branch kiosk health, enrollment coverage, and the issues that need administrator action.</p>
+  </div>
+  <div class="dashboard-actions">
+    <a class="btn btn-outline-primary" href="/api/reports/attendance?fmt=xlsx">Export Today</a>
+    <a class="btn btn-primary" href="/attendance">Resolve Exceptions</a>
+  </div>
+</section>
+
+<section class="dashboard-filterbar" aria-label="Dashboard filters">
+  <div>
+    <span class="dashboard-date-label">Operating date</span>
+    <strong id="dashboardDate">Loading...</strong>
+  </div>
+  <div class="dashboard-filterbar__actions">
+    <a href="/branches" class="btn btn-sm btn-outline-secondary">Kiosk Setup</a>
+    <a href="/employees" class="btn btn-sm btn-outline-secondary">Enroll Faces</a>
+    <a href="/leave" class="btn btn-sm btn-outline-secondary">Review Leave</a>
+  </div>
+</section>
+
+<div class="dashboard-kpis">
+  <article class="metric metric-live metric-success">
+    <span>Present Today</span>
+    <strong data-dashboard-metric="present_today">--</strong>
+    <small>Approved face punches</small>
+  </article>
+  <article class="metric metric-live metric-danger">
+    <span>Absent / No Punch</span>
+    <strong data-dashboard-metric="absent_today">--</strong>
+    <small>Active employees without approved punch</small>
+  </article>
+  <article class="metric metric-live metric-warning">
+    <span>Late / Half Day</span>
+    <strong data-dashboard-metric="late_today">--</strong>
+    <small>Shift-rule exceptions</small>
+  </article>
+  <article class="metric metric-live">
+    <span>Missing Checkout</span>
+    <strong data-dashboard-metric="missing_checkout">--</strong>
+    <small>Punched in, not out</small>
+  </article>
+  <article class="metric metric-live">
+    <span>Face Coverage</span>
+    <strong><span data-dashboard-metric="face_coverage">--</span>%</strong>
+    <small>Employees enrolled</small>
+  </article>
+</div>
+
+<div class="dashboard-grid">
+  <section class="panel dashboard-panel dashboard-panel-large">
+    <div class="panel-title">
+      <div>
+        <span class="eyebrow">Trend</span>
+        <h3>7-day attendance trend</h3>
+      </div>
+      <a href="/attendance">View live</a>
+    </div>
+    <canvas id="attendanceTrendChart" height="118"></canvas>
+  </section>
+
+  <section class="panel dashboard-panel">
+    <div class="panel-title">
+      <div>
+        <span class="eyebrow">Coverage</span>
+        <h3>Face enrollment</h3>
+      </div>
+      <a href="/employees">Manage</a>
+    </div>
+    <div class="enrollment-meter">
+      <div class="enrollment-meter__value"><span data-dashboard-metric="face_coverage">--</span>%</div>
+      <div class="progress" role="progressbar" aria-label="Face enrollment coverage">
+        <div id="faceCoverageBar" class="progress-bar"></div>
+      </div>
+      <div class="enrollment-meter__meta">
+        <span><strong id="facesEnrolled">--</strong> enrolled</span>
+        <span><strong id="facesMissing">--</strong> pending</span>
+      </div>
+    </div>
+  </section>
+</div>
+
+<div class="dashboard-grid dashboard-grid-secondary">
+  <section class="panel dashboard-panel">
+    <div class="panel-title">
+      <div>
+        <span class="eyebrow">Action Queue</span>
+        <h3>Needs attention</h3>
+      </div>
+      <a href="/attendance">Resolve</a>
+    </div>
+    <div id="exceptionList" class="action-list">
+      <div class="empty-state">Loading exceptions...</div>
+    </div>
+  </section>
+
+  <section class="panel dashboard-panel">
+    <div class="panel-title">
+      <div>
+        <span class="eyebrow">Branches</span>
+        <h3>Kiosk health</h3>
+      </div>
+      <a href="/branches">Open setup</a>
+    </div>
+    <div id="branchHealthList" class="branch-health-list">
+      <div class="empty-state">Loading branch health...</div>
+    </div>
+  </section>
+
+  <section class="panel dashboard-panel">
+    <div class="panel-title">
+      <div>
+        <span class="eyebrow">Setup Gaps</span>
+        <h3>Complete configuration</h3>
+      </div>
+      <a href="/employees">Fix</a>
+    </div>
+    <div id="setupGapList" class="action-list">
+      <div class="empty-state">Loading setup gaps...</div>
+    </div>
+  </section>
+</div>
+
+<section class="panel dashboard-panel">
+  <div class="panel-title">
+    <div>
+      <span class="eyebrow">Live Desk</span>
+      <h3>Operational summary</h3>
+    </div>
+  </div>
+  <div class="ops-summary">
+    <div><span>Total employees</span><strong data-dashboard-metric="total_employees">--</strong></div>
+    <div><span>Configured branches</span><strong data-dashboard-metric="total_branches">--</strong></div>
+    <div><span>Active kiosks today</span><strong data-dashboard-metric="active_kiosks">--</strong></div>
+    <div><span>Shift rules</span><strong data-dashboard-metric="configured_shifts">--</strong></div>
+    <div><span>Pending leave</span><strong data-dashboard-metric="pending_leave">--</strong></div>
+    <div><span>Rejected punches</span><strong data-dashboard-metric="rejected_today">--</strong></div>
+  </div>
+</section>
+{% endblock %}
+{% block scripts %}
+<script>
+renderDashboard();
+</script>
+{% endblock %}

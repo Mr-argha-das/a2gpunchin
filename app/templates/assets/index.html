@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="module-head">
+  <div>
+    <span class="eyebrow">Asset Management</span>
+    <h2>Employee asset assignments</h2>
+    <p>Track which employee has each company PC, laptop, keyboard, SIM, and other issued asset.</p>
+  </div>
+  <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#assetModal" data-create-modal="#assetModal" data-create-title="Asset">Add Asset</button>
+</div>
+
+<div class="insight-strip">
+  <div><span>Manual ID</span><strong>Admin controlled</strong></div>
+  <div><span>Assignment</span><strong>Employee linked</strong></div>
+  <div><span>Filters</span><strong>Employee + asset type</strong></div>
+</div>
+
+<section class="panel filter-panel">
+  <div class="panel-title">
+    <div><span class="eyebrow">Filters</span><h3>Find assigned assets</h3></div>
+  </div>
+  <form class="row g-2 align-items-end table-filter-form" data-target="#assetsTable">
+    <div class="col-md-4">
+      <label class="form-label">Search</label>
+      <input class="form-control" name="search" placeholder="Asset ID, serial, SIM number, model, note">
+    </div>
+    <div class="col-md-3">
+      <label class="form-label">Employee</label>
+      <select class="form-select option-loader" name="employee_id" data-source="/api/employees" data-kind="employee" data-load-all="true">
+        <option value="">All employees</option>
+      </select>
+    </div>
+    <div class="col-md-2">
+      <label class="form-label">Asset Type</label>
+      <select class="form-select" name="asset_type">
+        <option value="">All types</option>
+        <option value="pc">PC</option>
+        <option value="laptop">Laptop</option>
+        <option value="keyboard">Keyboard</option>
+        <option value="mouse">Mouse</option>
+        <option value="headset">Headset</option>
+        <option value="sim">SIM</option>
+        <option value="other">Other</option>
+      </select>
+    </div>
+    <div class="col-md-2">
+      <label class="form-label">Status</label>
+      <select class="form-select" name="status">
+        <option value="">All status</option>
+        <option value="assigned">Assigned</option>
+        <option value="returned">Returned</option>
+        <option value="repair">Repair</option>
+        <option value="damaged">Damaged</option>
+        <option value="lost">Lost</option>
+      </select>
+    </div>
+    <div class="col-md-1 d-flex gap-2">
+      <button class="btn btn-primary flex-fill" type="submit">Filter</button>
+      <button class="btn btn-outline-secondary flex-fill" type="reset">Clear</button>
+    </div>
+  </form>
+</section>
+
+<section class="panel table-panel">
+  <div class="panel-title">
+    <div><span class="eyebrow">Inventory</span><h3>Assigned asset list</h3></div>
+  </div>
+  <table id="assetsTable" class="table table-striped data-table" data-api="/api/assets" data-edit-modal="#assetModal" data-edit-title="Edit Asset" data-page-size="25" data-page-sizes="25,50,75,100" data-columns="asset_id,asset_type,asset_name,brand_model,serial_number,sim_number,employee,employee_phone,department,assigned_on,returned_on,status,condition,actions">
+    <thead><tr><th>Asset ID</th><th>Type</th><th>Name</th><th>Brand / Model</th><th>Serial</th><th>SIM No.</th><th>Employee</th><th>Employee Phone</th><th>Department</th><th>Assigned</th><th>Returned</th><th>Status</th><th>Condition</th><th>Actions</th></tr></thead>
+  </table>
+</section>
+
+<div class="modal fade" id="assetModal" tabindex="-1"><div class="modal-dialog modal-lg"><form class="modal-content ajax-form" data-api="/api/assets" data-create-api="/api/assets"><div class="modal-header"><h2 class="modal-title fs-5">Asset</h2></div><div class="modal-body row g-3">
+  <div class="col-12"><h3 class="form-section-title">Employee Assignment</h3></div>
+  <div class="col-md-6"><label class="form-label">Employee</label><select class="form-select option-loader" name="employee_id" data-source="/api/employees" data-kind="employee" data-load-all="true" required><option value="">Select employee</option></select></div>
+  <div class="col-md-3"><label class="form-label">Assigned Date</label><input class="form-control" name="assigned_on" type="date"></div>
+  <div class="col-md-3"><label class="form-label">Returned Date</label><input class="form-control" name="returned_on" type="date"></div>
+  <div class="col-12"><h3 class="form-section-title">Asset Details</h3></div>
+  <div class="col-md-3"><label class="form-label">Asset ID</label><input class="form-control" name="asset_id" placeholder="PC-001 / SIM-001" required></div>
+  <div class="col-md-3"><label class="form-label">Asset Type</label><select class="form-select" name="asset_type" required><option value="">Select type</option><option value="pc">PC</option><option value="laptop">Laptop</option><option value="keyboard">Keyboard</option><option value="mouse">Mouse</option><option value="headset">Headset</option><option value="sim">SIM</option><option value="other">Other</option></select></div>
+  <div class="col-md-3"><label class="form-label">Asset Name</label><input class="form-control" name="asset_name" placeholder="Desktop PC / Keyboard / SIM" required></div>
+  <div class="col-md-3"><label class="form-label">Brand / Model</label><input class="form-control" name="brand_model" placeholder="Dell 5420"></div>
+  <div class="col-md-4"><label class="form-label">Serial / IMEI</label><input class="form-control" name="serial_number" placeholder="Serial or IMEI"></div>
+  <div class="col-md-4 d-none" data-sim-field><label class="form-label">SIM Number</label><input class="form-control" name="sim_number" placeholder="Enter SIM mobile number" disabled></div>
+  <div class="col-md-4"><label class="form-label">Status</label><select class="form-select" name="status"><option value="assigned">Assigned</option><option value="returned">Returned</option><option value="repair">Repair</option><option value="damaged">Damaged</option><option value="lost">Lost</option></select></div>
+  <div class="col-md-4"><label class="form-label">Condition</label><input class="form-control" name="condition" placeholder="New / Good / Used"></div>
+  <div class="col-md-8"><label class="form-label">Note</label><textarea class="form-control" name="note" rows="2" placeholder="Charger, accessories, remarks"></textarea></div>
+</div><div class="modal-footer"><button class="btn btn-primary">Save Asset</button></div></form></div></div>
+{% endblock %}
+{% block scripts %}
+<script>
+  function syncAssetSimField(form) {
+    const type = form?.elements.asset_type?.value;
+    const wrapper = form?.querySelector("[data-sim-field]");
+    const input = form?.elements.sim_number;
+    if (!wrapper || !input) return;
+    const isSim = type === "sim";
+    wrapper.classList.toggle("d-none", !isSim);
+    input.disabled = !isSim;
+    if (!isSim) input.value = "";
+  }
+
+  document.addEventListener("change", (event) => {
+    if (event.target.matches("#assetModal select[name='asset_type']")) {
+      syncAssetSimField(event.target.form);
+    }
+  });
+
+  document.getElementById("assetModal")?.addEventListener("shown.bs.modal", (event) => {
+    syncAssetSimField(event.target.querySelector("form"));
+  });
+</script>
+{% endblock %}

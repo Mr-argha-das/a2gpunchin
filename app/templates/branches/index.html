@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="module-head">
+  <div>
+    <span class="eyebrow">Kiosk Setup</span>
+    <h2>Branches & TL phones</h2>
+    <p>Configure branch geofences, kiosk PINs, and the GPS controls used by the Flutter face-punch app.</p>
+  </div>
+  <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#branchModal">Add Branch Kiosk</button>
+</div>
+
+<div class="insight-strip">
+  <div><span>Geofence</span><strong>Latitude, longitude, radius</strong></div>
+  <div><span>Kiosk auth</span><strong>Branch code + PIN</strong></div>
+  <div><span>Daily owner</span><strong>TL phone operator</strong></div>
+</div>
+
+<section class="panel map-card">
+  <div class="panel-title">
+    <div><span class="eyebrow">Coverage Map</span><h3>Branch locations</h3></div>
+    <a href="/attendance">View punches</a>
+  </div>
+  <div id="branchMap" class="map-panel"></div>
+</section>
+
+<section class="panel table-panel">
+  <div class="panel-title">
+    <div><span class="eyebrow">Kiosks</span><h3>Branch configuration</h3></div>
+  </div>
+  <table class="table table-striped data-table" data-api="/api/branches" data-columns="branch_name,branch_code,address,allowed_radius,kiosk_pin">
+    <thead><tr><th>Branch</th><th>Code</th><th>Address</th><th>Radius</th><th>Kiosk PIN</th></tr></thead>
+  </table>
+</section>
+
+<div class="modal fade" id="branchModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <form class="modal-content ajax-form" data-api="/api/branches">
+      <div class="modal-header"><h2 class="modal-title fs-5">Branch Kiosk</h2></div>
+      <div class="modal-body row g-3">
+        <input type="hidden" name="tenant_id">
+        <div class="col-12"><label class="form-label">Company</label><select class="form-select option-loader company-select" name="company_id" data-source="/api/companies" data-kind="company"><option value="">Use current company</option></select></div>
+        <div class="col-md-6"><label class="form-label">Branch Name</label><input class="form-control" name="branch_name" placeholder="Head Office" required></div>
+        <div class="col-md-6"><label class="form-label">Branch Code</label><input class="form-control" name="branch_code" placeholder="HQ" required></div>
+        <div class="col-12"><label class="form-label">Address</label><input class="form-control" name="address" placeholder="Office address" required></div>
+        <div class="col-md-6"><label class="form-label">Latitude</label><input class="form-control" name="latitude" type="number" step="any" placeholder="19.0760" required></div>
+        <div class="col-md-6"><label class="form-label">Longitude</label><input class="form-control" name="longitude" type="number" step="any" placeholder="72.8777" required></div>
+        <div class="col-md-6"><label class="form-label">Allowed Radius</label><input class="form-control" name="allowed_radius" type="number" value="100" placeholder="Meters"></div>
+        <div class="col-md-6"><label class="form-label">Kiosk PIN</label><input class="form-control" name="kiosk_pin" value="1234" placeholder="1234"></div>
+      </div>
+      <div class="modal-footer"><button class="btn btn-primary">Save Branch</button></div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}<script>renderBranchMap();</script>{% endblock %}
