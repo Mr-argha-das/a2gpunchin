@@ -105,6 +105,49 @@ class KioskApiClient {
     return jsonDecode(response.body) as Map<String, dynamic>;
   }
 
+  Future<Map<String, dynamic>> livenessConfig() async {
+    final response = await http.get(_uri('/api/v1/face-voice/liveness-config'));
+    if (response.statusCode != 200) {
+      throw Exception(_detail(response));
+    }
+    return jsonDecode(response.body) as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> secureFaceVoiceChallenge({
+    required String branchId,
+    required String kioskPin,
+    required String action,
+    required Uint8List imageBytes,
+    required List<Uint8List> frameBytes,
+    required Map<String, dynamic> livenessMetadata,
+  }) async {
+    final request = http.MultipartRequest(
+        'POST', _uri('/api/v1/face-voice/secure-challenge'))
+      ..fields['branch_id'] = branchId
+      ..fields['kiosk_pin'] = kioskPin
+      ..fields['action'] = action
+      ..fields['liveness_metadata'] = jsonEncode(livenessMetadata)
+      ..files.add(http.MultipartFile.fromBytes(
+        'image',
+        imageBytes,
+        filename: 'recognition.jpg',
+        contentType: MediaType('image', 'jpeg'),
+      ));
+    for (var index = 0; index < frameBytes.length; index += 1) {
+      request.files.add(http.MultipartFile.fromBytes(
+        'frames',
+        frameBytes[index],
+        filename: 'liveness_$index.jpg',
+        contentType: MediaType('image', 'jpeg'),
+      ));
+    }
+    final response = await http.Response.fromStream(await request.send());
+    if (response.statusCode != 200) {
+      throw Exception(_detail(response));
+    }
+    return jsonDecode(response.body) as Map<String, dynamic>;
+  }
+
   Future<Map<String, dynamic>> verifyFaceVoicePunch({
     required String branchId,
     required String kioskPin,

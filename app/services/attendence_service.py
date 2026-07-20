@@ -8,9 +8,11 @@ from fastapi import HTTPException
 from mongoengine import (
     BinaryField,
     DateTimeField,
+    DictField,
     Document,
     FloatField,
     IntField,
+    ListField,
     StringField,
 )
 
@@ -48,6 +50,16 @@ class AttendanceRecord(Document):
     status = StringField(required=True, choices=("PUNCHED_IN", "PUNCHED_OUT"))
     punch_in_confidence = FloatField()
     punch_out_confidence = FloatField()
+    face_score = FloatField()
+    liveness_score = FloatField()
+    reflection_score = FloatField()
+    recognition_score = FloatField()
+    confidence_score = FloatField()
+    challenge_type = StringField()
+    challenge_result = StringField()
+    color_sequence = ListField(StringField())
+    processing_time = FloatField()
+    security_audit = DictField()
     created_at = DateTimeField(default=datetime.utcnow)
     updated_at = DateTimeField(default=datetime.utcnow)
 
@@ -149,6 +161,7 @@ class AttendanceService:
         action: str,
         punch_time: datetime,
         punch_in_time: datetime | None = None,
+        security_fields: dict[str, Any] | None = None,
     ) -> Attendance | None:
         employee = self._employee_for_face_id(employee_face.employee_id)
         if not employee or not employee.branch_id:
@@ -196,6 +209,7 @@ class AttendanceService:
                 if employee.shift_id
                 else "pending",
             )
+            self._apply_security_fields(attendance, security_fields)
             self.admin_attendance_service.recalculate_attendance_status(attendance, save=False)
             attendance.save()
             return attendance
@@ -240,9 +254,17 @@ class AttendanceService:
             if employee.shift_id
             else "normal"
         )
+        self._apply_security_fields(attendance, security_fields)
         self.admin_attendance_service.recalculate_attendance_status(attendance, save=False)
         attendance.save()
         return attendance
+
+    def _apply_security_fields(self, target: Any, security_fields: dict[str, Any] | None) -> None:
+        if not security_fields:
+            return
+        for field, value in security_fields.items():
+            if field in getattr(target, "_fields", {}):
+                setattr(target, field, value)
 
     def register_employee(
         self,
@@ -341,6 +363,7 @@ class AttendanceService:
         kiosk_pin: str,
         liveness_image_bytes: bytes,
         liveness_challenge: str,
+        security_fields: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         branch = self._kiosk_branch(branch_id, kiosk_pin)
         try:
@@ -389,10 +412,11 @@ class AttendanceService:
                 punch_in_confidence=match["confidence"],
                 updated_at=now,
             )
+            self._apply_security_fields(record, security_fields)
             record.save()
-            self._sync_admin_attendance(employee, "PUNCH_IN", now)
+            self._sync_admin_attendance(employee, "PUNCH_IN", now, security_fields=security_fields)
 
-            return {
+            response = {
                 "success": True,
                 "recognized": True,
                 "action": "PUNCH_IN",
@@ -409,6 +433,9 @@ class AttendanceService:
                 "duration_seconds": None,
                 "duration_human": None,
             }
+            if security_fields:
+                response.update(security_fields)
+            return response
 
         duration_seconds = int((now - open_record.punch_in).total_seconds())
         open_record.punch_out = now
@@ -416,10 +443,17 @@ class AttendanceService:
         open_record.status = "PUNCHED_OUT"
         open_record.punch_out_confidence = match["confidence"]
         open_record.updated_at = now
+        self._apply_security_fields(open_record, security_fields)
         open_record.save()
-        self._sync_admin_attendance(employee, "PUNCH_OUT", now, punch_in_time=open_record.punch_in)
+        self._sync_admin_attendance(
+            employee,
+            "PUNCH_OUT",
+            now,
+            punch_in_time=open_record.punch_in,
+            security_fields=security_fields,
+        )
 
-        return {
+        response = {
             "success": True,
             "recognized": True,
             "action": "PUNCH_OUT",
@@ -436,6 +470,9 @@ class AttendanceService:
             "duration_seconds": duration_seconds,
             "duration_human": self._format_duration(duration_seconds),
         }
+        if security_fields:
+            response.update(security_fields)
+        return response
 
     def get_employee_image(self, employee_id: str) -> tuple[bytes, str]:
         employee = EmployeeFace.objects(employee_id=employee_id).only("image", "image_content_type").first()

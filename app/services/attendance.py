@@ -388,6 +388,19 @@ class AttendanceService(BaseService):
             check_in_status=self._check_in_status(employee.shift_id, now) if approved and employee.shift_id else "pending",
             rejection_reason=None if approved else f"Outside allowed radius of {branch.allowed_radius} meters",
         )
+        for field in (
+            "face_score",
+            "liveness_score",
+            "reflection_score",
+            "recognition_score",
+            "confidence_score",
+            "challenge_type",
+            "challenge_result",
+            "color_sequence",
+            "processing_time",
+        ):
+            if field in data:
+                setattr(attendance, field, data.get(field))
         self.recalculate_attendance_status(attendance, save=False)
         attendance.save()
         return attendance

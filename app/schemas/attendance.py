@@ -9,6 +9,15 @@ class AttendanceCheckIn(BaseModel):
     device_info: str | None = None
     browser_fingerprint: str | None = None
     selfie_base64: str | None = None
+    face_score: float | None = None
+    liveness_score: float | None = None
+    reflection_score: float | None = None
+    recognition_score: float | None = None
+    confidence_score: float | None = None
+    challenge_type: str | None = None
+    challenge_result: str | None = None
+    color_sequence: list[str] | None = None
+    processing_time: float | None = None
 
 
 class AttendanceCheckOut(BaseModel):
@@ -33,3 +42,12 @@ class PunchLocation(BaseModel):
     device_info: str | None = None
     browser_fingerprint: str | None = None
     selfie_base64: str | None = None
+    face_score: float | None = None
+    liveness_score: float | None = None
+    reflection_score: float | None = None
+    recognition_score: float | None = None
+    confidence_score: float | None = None
+    challenge_type: str | None = None
+    challenge_result: str | None = None
+    color_sequence: list[str] | None = None
+    processing_time: float | None = None

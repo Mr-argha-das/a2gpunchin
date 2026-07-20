@@ -1,14 +1,16 @@
 import logging
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
 
 from app.services.face_voice_service import FaceVoiceService
+from app.services.face_liveness_security import FaceLivenessSecurityService
 
 
 router = APIRouter(prefix="/api/v1/face-voice", tags=["Face + Voice Attendance"])
 service: FaceVoiceService | None = None
 logger = logging.getLogger(__name__)
+liveness_service = FaceLivenessSecurityService()
 
 IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp"}
 AUDIO_TYPES = {
@@ -67,6 +69,53 @@ async def face_voice_challenge(
         branch_id,
         kiosk_pin,
         action,
+    )
+
+
+@router.get("/liveness-config")
+def liveness_config():
+    return liveness_service.config()
+
+
+@router.post("/secure-challenge")
+async def secure_face_voice_challenge(
+    request: Request,
+    image: Annotated[UploadFile, File(...)],
+    frames: Annotated[list[UploadFile], File(...)],
+    branch_id: Annotated[str, Form(...)],
+    kiosk_pin: Annotated[str, Form(...)],
+    liveness_metadata: Annotated[str, Form(...)],
+    action: Annotated[Literal["auto", "punch_in", "punch_out"], Form()] = "auto",
+):
+    image_bytes = await read_file(image, IMAGE_TYPES, 10 * 1024 * 1024)
+    frame_bytes = [await read_file(frame, IMAGE_TYPES, 10 * 1024 * 1024) for frame in frames]
+    service = get_service()
+    match, _employee = service.recognize_image(image_bytes, branch_id, kiosk_pin)
+    liveness = liveness_service.evaluate(
+        frame_bytes,
+        liveness_metadata,
+        recognition_confidence=float(match.get("confidence") or 0),
+        request=request,
+    )
+    if not liveness.passed:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "success": False,
+                "failure_reason": liveness.failure_reason,
+                **liveness.to_attendance_fields(),
+            },
+        )
+    if liveness.low_confidence:
+        audit_image_path = liveness_service.save_audit_image(image_bytes)
+        if audit_image_path:
+            liveness.audit["audit_image_path"] = audit_image_path
+    return service.create_challenge(
+        image_bytes,
+        branch_id,
+        kiosk_pin,
+        action,
+        liveness_result=liveness,
     )
 
 

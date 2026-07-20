@@ -12,6 +12,7 @@ from app.models.employee import Employee
 from app.models.voice_auth import EmployeeVoiceProfile, FaceVoiceChallenge
 from app.services.attendence_service import AttendanceRecord, EmployeeFace, AttendanceService
 from app.services.fast_voice_engine import FastVoiceEngine
+from app.services.face_liveness_security import FaceLivenessResult
 
 
 Action = Literal["auto", "punch_in", "punch_out"]
@@ -93,6 +94,7 @@ class FaceVoiceService:
         branch_id: str,
         kiosk_pin: str,
         action: Action = "auto",
+        liveness_result: FaceLivenessResult | None = None,
     ) -> dict[str, Any]:
         branch = self.face_service._kiosk_branch(branch_id, kiosk_pin)
         try:
@@ -113,6 +115,7 @@ class FaceVoiceService:
             raise HTTPException(status_code=400, detail="Employee voice enrolled nahi hai")
 
         liveness = {"challenge": "face_match", "motion_score": 0.0}
+        security_fields = liveness_result.to_attendance_fields() if liveness_result else {}
         punch_type = self._resolve_action(employee, action)
         now = datetime.utcnow()
         FaceVoiceChallenge.objects(employee_id=employee, used=False).update(
@@ -127,11 +130,19 @@ class FaceVoiceService:
             punch_type=punch_type,
             digits=self._random_digits(),
             face_confidence=float(match["confidence"]),
-            liveness_challenge=liveness["challenge"],
+            liveness_challenge=security_fields.get("challenge_type") or liveness["challenge"],
             liveness_motion_score=float(liveness["motion_score"]),
+            face_score=security_fields.get("face_score"),
+            liveness_score=security_fields.get("liveness_score"),
+            reflection_score=security_fields.get("reflection_score"),
+            recognition_score=security_fields.get("recognition_score"),
+            confidence_score=security_fields.get("confidence_score"),
+            challenge_result=security_fields.get("challenge_result"),
+            color_sequence=security_fields.get("color_sequence"),
+            processing_time=security_fields.get("processing_time"),
             expires_at=now + timedelta(seconds=30),
         ).save()
-        return {
+        response = {
             "success": True,
             "challenge_id": challenge.challenge_id,
             "digits": " ".join(challenge.digits),
@@ -143,6 +154,29 @@ class FaceVoiceService:
             "employee_name": f"{employee.first_name} {employee.last_name}".strip(),
             "instruction": "Har digit ko alag-alag Hindi ya English mein bolo",
         }
+        response.update(security_fields)
+        return response
+
+    def recognize_image(
+        self,
+        image_bytes: bytes,
+        branch_id: str,
+        kiosk_pin: str,
+    ) -> tuple[dict[str, Any], Employee]:
+        branch = self.face_service._kiosk_branch(branch_id, kiosk_pin)
+        try:
+            match = self.face_service.face_engine.search_employee(image_bytes)
+        except RuntimeError as exc:
+            raise HTTPException(status_code=503, detail=str(exc)) from exc
+        if not match.get("found"):
+            raise HTTPException(status_code=404, detail=match.get("message", "Face match nahi hua"))
+        employee_face = EmployeeFace.objects(employee_id=match["employee_id"]).only("employee_id").first()
+        if employee_face is None:
+            raise HTTPException(status_code=404, detail="Matched employee face record nahi mila")
+        employee = self.face_service._employee_for_face_id(employee_face.employee_id)
+        employee = self.face_service._ensure_employee_allowed_at_branch(employee, branch)
+        self._ensure_employee_assigned_to_branch(employee, branch)
+        return match, employee
 
     def _get_open_challenge(self, challenge_id: str, branch_id: str, kiosk_pin: str) -> FaceVoiceChallenge:
         branch = self.face_service._kiosk_branch(branch_id, kiosk_pin)
@@ -187,8 +221,9 @@ class FaceVoiceService:
         if not voice["verified"]:
             raise HTTPException(status_code=401, detail={"success": False, **voice})
         self._consume_challenge(challenge)
-        attendance = self._commit_punch(employee, challenge.punch_type, challenge.face_confidence)
-        return {
+        security_fields = self._challenge_security_fields(challenge)
+        attendance = self._commit_punch(employee, challenge.punch_type, challenge.face_confidence, security_fields)
+        response = {
             "success": True,
             "employee_id": str(employee.id),
             "employee_code": employee.employee_code,
@@ -200,8 +235,29 @@ class FaceVoiceService:
             "check_in_time": attendance.check_in_time.isoformat() if attendance.check_in_time else None,
             "check_out_time": attendance.check_out_time.isoformat() if attendance.check_out_time else None,
         }
+        response.update(security_fields)
+        return response
 
-    def _commit_punch(self, employee: Employee, action: str, face_confidence: float) -> Attendance:
+    def _challenge_security_fields(self, challenge: FaceVoiceChallenge) -> dict[str, Any]:
+        return {
+            "face_score": challenge.face_score,
+            "liveness_score": challenge.liveness_score,
+            "reflection_score": challenge.reflection_score,
+            "recognition_score": challenge.recognition_score,
+            "confidence_score": challenge.confidence_score,
+            "challenge_type": challenge.liveness_challenge,
+            "challenge_result": challenge.challenge_result,
+            "color_sequence": list(challenge.color_sequence or []),
+            "processing_time": challenge.processing_time,
+        }
+
+    def _commit_punch(
+        self,
+        employee: Employee,
+        action: str,
+        face_confidence: float,
+        security_fields: dict[str, Any] | None = None,
+    ) -> Attendance:
         admin_service = self.face_service.admin_attendance_service
         now = datetime.utcnow()
         admin_service.auto_punch_out_overdue_for_employee(employee, now)
@@ -225,7 +281,14 @@ class FaceVoiceService:
                 punch_in_confidence=face_confidence,
                 updated_at=now,
             ).save()
-            attendance = self.face_service._sync_admin_attendance(employee_face, "PUNCH_IN", now)
+            self.face_service._apply_security_fields(record, security_fields)
+            record.save()
+            attendance = self.face_service._sync_admin_attendance(
+                employee_face,
+                "PUNCH_IN",
+                now,
+                security_fields=security_fields,
+            )
         else:
             if open_record is None:
                 raise HTTPException(status_code=400, detail="Open punch-in nahi mila")
@@ -234,6 +297,7 @@ class FaceVoiceService:
             open_record.status = "PUNCHED_OUT"
             open_record.punch_out_confidence = face_confidence
             open_record.updated_at = now
+            self.face_service._apply_security_fields(open_record, security_fields)
             open_record.save()
             record = open_record
             attendance = self.face_service._sync_admin_attendance(
@@ -241,6 +305,7 @@ class FaceVoiceService:
                 "PUNCH_OUT",
                 now,
                 punch_in_time=open_record.punch_in,
+                security_fields=security_fields,
             )
         if attendance is None:
             raise HTTPException(status_code=500, detail="Main attendance sync nahi hui")
