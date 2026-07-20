@@ -1,11 +1,14 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:math';
+import 'dart:ui' as ui;
 
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:fluttertoast/fluttertoast.dart';
+import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -56,6 +59,68 @@ class AttendanceKioskApp extends StatelessWidget {
 
 enum KioskPage { scanner, enroll, settings }
 
+class _LivenessFrame {
+  const _LivenessFrame({
+    required this.bytes,
+    required this.color,
+    required this.faceCount,
+    required this.centered,
+    required this.sizeOk,
+    this.smilingProbability,
+    this.leftEyeOpenProbability,
+    this.rightEyeOpenProbability,
+    this.eulerX,
+    this.eulerY,
+  });
+
+  final Uint8List bytes;
+  final String color;
+  final int faceCount;
+  final bool centered;
+  final bool sizeOk;
+  final double? smilingProbability;
+  final double? leftEyeOpenProbability;
+  final double? rightEyeOpenProbability;
+  final double? eulerX;
+  final double? eulerY;
+
+  Map<String, dynamic> toJson() => {
+        'color': color,
+        'face_count': faceCount,
+        'centered': centered,
+        'size_ok': sizeOk,
+        'smiling_probability': smilingProbability,
+        'left_eye_open_probability': leftEyeOpenProbability,
+        'right_eye_open_probability': rightEyeOpenProbability,
+        'euler_x': eulerX,
+        'euler_y': eulerY,
+      };
+}
+
+class _LivenessCapture {
+  const _LivenessCapture({
+    required this.recognitionImage,
+    required this.frames,
+    required this.challengeTypes,
+    required this.challengeResults,
+    required this.colorSequence,
+  });
+
+  final Uint8List recognitionImage;
+  final List<_LivenessFrame> frames;
+  final List<String> challengeTypes;
+  final Map<String, bool> challengeResults;
+  final List<String> colorSequence;
+
+  Map<String, dynamic> metadata(String deviceId) => {
+        'device_id': deviceId,
+        'challenge_types': challengeTypes,
+        'challenge_results': challengeResults,
+        'color_sequence': colorSequence,
+        'frames': frames.map((frame) => frame.toJson()).toList(),
+      };
+}
+
 class KioskShell extends StatefulWidget {
   const KioskShell(
       {super.key, required this.cameras, this.enableFaceService = true});
@@ -76,6 +141,8 @@ class _KioskShellState extends State<KioskShell> {
   final _tts = FlutterTts();
   final _audioRecorder = AudioRecorder();
   final List<Uint8List> _voiceSamples = [];
+  late final FaceDetector _faceDetector;
+  final _random = Random.secure();
 
   CameraController? _camera;
   KioskApiClient? _client;
@@ -84,10 +151,21 @@ class _KioskShellState extends State<KioskShell> {
   bool _busy = false;
   String _message = 'Connect kiosk from settings.';
   String? _voicePrompt;
+  String? _challengeText;
+  Color? _flashColor;
+  double _verificationProgress = 0;
+  Map<String, dynamic>? _livenessConfig;
 
   @override
   void initState() {
     super.initState();
+    _faceDetector = FaceDetector(
+      options: FaceDetectorOptions(
+        enableClassification: true,
+        enableTracking: true,
+        performanceMode: FaceDetectorMode.fast,
+      ),
+    );
     _configureVoice();
     _restore();
     _initCamera();
@@ -164,6 +242,7 @@ class _KioskShellState extends State<KioskShell> {
         branchCode: _branchCodeController.text.trim(),
         kioskPin: _pinController.text.trim(),
       );
+      final livenessConfig = await client.livenessConfig();
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('base_url', backendUrl);
       await prefs.setString('branch_code', _branchCodeController.text.trim());
@@ -171,6 +250,7 @@ class _KioskShellState extends State<KioskShell> {
       setState(() {
         _client = client;
         _session = session;
+        _livenessConfig = livenessConfig;
         _page = KioskPage.scanner;
         _message = 'Ready at ${session.branchName}.';
       });
@@ -207,6 +287,203 @@ class _KioskShellState extends State<KioskShell> {
     }
     final file = await camera.takePicture();
     return File(file.path).readAsBytes();
+  }
+
+  Future<(Uint8List, List<Face>, Size)> _captureFaceFrame() async {
+    final camera = _camera;
+    if (camera == null || !camera.value.isInitialized) {
+      throw Exception('Camera is not ready.');
+    }
+    final file = await camera.takePicture();
+    final bytes = await File(file.path).readAsBytes();
+    final image = InputImage.fromFilePath(file.path);
+    final faces = await _faceDetector.processImage(image);
+    unawaited(File(file.path).delete().catchError((_) => File(file.path)));
+    final decoded = await _decodeImageSize(bytes);
+    final size = Size(decoded.width.toDouble(), decoded.height.toDouble());
+    return (bytes, faces, size);
+  }
+
+  Future<ui.Image> _decodeImageSize(Uint8List bytes) {
+    final completer = Completer<ui.Image>();
+    ui.decodeImageFromList(bytes, completer.complete);
+    return completer.future;
+  }
+
+  List<String> _randomChallenges() {
+    final configured = (_livenessConfig?['challenge_types'] as List<dynamic>?)
+            ?.map((item) => item.toString())
+            .where((item) => item.isNotEmpty)
+            .toList() ??
+        const [
+          'blink',
+          'smile',
+          'turn_left',
+          'turn_right',
+          'look_up',
+          'look_down'
+        ];
+    final shuffled = List<String>.from(configured)..shuffle(_random);
+    return shuffled.take(_random.nextBool() ? 1 : 2).toList();
+  }
+
+  List<String> _randomColorSequence() {
+    final configured = (_livenessConfig?['colors'] as List<dynamic>?)
+            ?.map((item) => item.toString())
+            .where((item) => item.isNotEmpty)
+            .toList() ??
+        const ['white', 'red', 'blue', 'green'];
+    final colors = List<String>.from(configured)..shuffle(_random);
+    return colors;
+  }
+
+  Color _challengeColor(String value) {
+    return switch (value) {
+      'red' => const Color(0xFFFF1F1F),
+      'blue' => const Color(0xFF1D4ED8),
+      'green' => const Color(0xFF16A34A),
+      'white' => Colors.white,
+      _ => Colors.white,
+    };
+  }
+
+  String _challengeLabel(String value) {
+    return switch (value) {
+      'blink' => 'Blink',
+      'smile' => 'Smile',
+      'turn_left' => 'Turn head left',
+      'turn_right' => 'Turn head right',
+      'look_up' => 'Look up',
+      'look_down' => 'Look down',
+      _ => value,
+    };
+  }
+
+  bool _faceGeometryOk(Face face, Size imageSize) {
+    final box = face.boundingBox;
+    final centerX = box.center.dx / imageSize.width;
+    final centerY = box.center.dy / imageSize.height;
+    final faceRatio =
+        (box.width * box.height) / (imageSize.width * imageSize.height);
+    final centered =
+        centerX > .25 && centerX < .75 && centerY > .18 && centerY < .78;
+    final sizeOk = faceRatio > .08 && faceRatio < .55;
+    return centered && sizeOk;
+  }
+
+  _LivenessFrame _frameFromCapture(
+    Uint8List bytes,
+    List<Face> faces,
+    Size size,
+    String color,
+  ) {
+    final face = faces.isEmpty ? null : faces.first;
+    return _LivenessFrame(
+      bytes: bytes,
+      color: color,
+      faceCount: faces.length,
+      centered: face != null && _faceGeometryOk(face, size),
+      sizeOk: face != null && _faceGeometryOk(face, size),
+      smilingProbability: face?.smilingProbability,
+      leftEyeOpenProbability: face?.leftEyeOpenProbability,
+      rightEyeOpenProbability: face?.rightEyeOpenProbability,
+      eulerX: face?.headEulerAngleX,
+      eulerY: face?.headEulerAngleY,
+    );
+  }
+
+  Map<String, bool> _evaluateChallengeResults(
+    List<String> challenges,
+    List<_LivenessFrame> frames,
+  ) {
+    bool any(bool Function(_LivenessFrame frame) test) => frames.any(test);
+    final minEyeOpen = frames
+        .map((frame) => min(
+              frame.leftEyeOpenProbability ?? 1,
+              frame.rightEyeOpenProbability ?? 1,
+            ))
+        .fold<double>(1, min);
+    final maxEyeOpen = frames
+        .map((frame) => min(
+              frame.leftEyeOpenProbability ?? 0,
+              frame.rightEyeOpenProbability ?? 0,
+            ))
+        .fold<double>(0, max);
+    return {
+      for (final challenge in challenges)
+        challenge: switch (challenge) {
+          'blink' => minEyeOpen < .35 && maxEyeOpen > .65,
+          'smile' => any((frame) => (frame.smilingProbability ?? 0) > .65),
+          'turn_left' => any((frame) => (frame.eulerY ?? 0) > 14),
+          'turn_right' => any((frame) => (frame.eulerY ?? 0) < -14),
+          'look_up' => any((frame) => (frame.eulerX ?? 0) < -10),
+          'look_down' => any((frame) => (frame.eulerX ?? 0) > 10),
+          _ => false,
+        }
+    };
+  }
+
+  Future<_LivenessCapture> _runLivenessCapture() async {
+    final challenges = _randomChallenges();
+    final colorSequence = _randomColorSequence();
+    final colorDuration = Duration(
+      milliseconds: (_livenessConfig?['color_duration_ms'] as int?) ?? 320,
+    );
+    final challengeText = challenges.map(_challengeLabel).join(' + ');
+    setState(() {
+      _challengeText = challengeText;
+      _verificationProgress = .08;
+      _message = challengeText;
+    });
+    unawaited(_speak(challengeText));
+    await Future.delayed(const Duration(milliseconds: 650));
+
+    final recognitionCapture = await _captureFaceFrame();
+    if (recognitionCapture.$2.length != 1) {
+      throw Exception(recognitionCapture.$2.isEmpty
+          ? 'No face detected. Please face the camera.'
+          : 'Only one face is allowed.');
+    }
+    if (!_faceGeometryOk(recognitionCapture.$2.first, recognitionCapture.$3)) {
+      throw Exception('Center your face and keep a comfortable distance.');
+    }
+
+    final frames = <_LivenessFrame>[];
+    for (var index = 0; index < colorSequence.length; index += 1) {
+      final colorName = colorSequence[index];
+      setState(() {
+        _flashColor = _challengeColor(colorName);
+        _verificationProgress = .18 + (.58 * (index / colorSequence.length));
+      });
+      await Future.delayed(colorDuration);
+      final capture = await _captureFaceFrame();
+      final frame =
+          _frameFromCapture(capture.$1, capture.$2, capture.$3, colorName);
+      if (frame.faceCount != 1) {
+        throw Exception(frame.faceCount == 0
+            ? 'Face left the camera during verification.'
+            : 'More than one face detected.');
+      }
+      if (!frame.centered || !frame.sizeOk) {
+        throw Exception('Keep your face centered until verification finishes.');
+      }
+      frames.add(frame);
+    }
+    setState(() {
+      _flashColor = null;
+      _verificationProgress = .82;
+    });
+    final challengeResults = _evaluateChallengeResults(challenges, frames);
+    if (challengeResults.values.any((passed) => !passed)) {
+      throw Exception('Challenge not completed. Please retry.');
+    }
+    return _LivenessCapture(
+      recognitionImage: recognitionCapture.$1,
+      frames: frames,
+      challengeTypes: challenges,
+      challengeResults: challengeResults,
+      colorSequence: colorSequence,
+    );
   }
 
   Future<Uint8List> _recordVoiceClip({
@@ -259,19 +536,32 @@ class _KioskShellState extends State<KioskShell> {
     }
     setState(() {
       _busy = true;
-      _message = 'Scanning face...';
+      _voicePrompt = null;
+      _challengeText = null;
+      _flashColor = null;
+      _verificationProgress = 0;
+      _message = 'Starting secure verification...';
     });
     try {
-      final imageBytes = await _captureImageBytes();
-      setState(() => _message = 'Face matched. Preparing voice PIN...');
-      final challengeResult = await client.faceVoiceChallenge(
+      final liveness = await _runLivenessCapture();
+      setState(() {
+        _message = 'AI validation running...';
+        _verificationProgress = .9;
+      });
+      final challengeResult = await client.secureFaceVoiceChallenge(
         branchId: session.branchId,
         kioskPin: _pinController.text.trim(),
         action: 'auto',
-        imageBytes: imageBytes,
+        imageBytes: liveness.recognitionImage,
+        frameBytes: liveness.frames.map((frame) => frame.bytes).toList(),
+        livenessMetadata: liveness.metadata(session.branchId),
       );
       final digits = challengeResult['digits']?.toString() ?? '';
       final instruction = digits.isEmpty ? 'Say the digits.' : 'Say $digits';
+      setState(() {
+        _verificationProgress = 1;
+        _message = 'Liveness passed. Preparing voice PIN...';
+      });
       final audioBytes = await _recordVoiceClip(
         prompt: instruction,
         duration: const Duration(milliseconds: 2500),
@@ -293,6 +583,9 @@ class _KioskShellState extends State<KioskShell> {
       if (mounted) {
         setState(() {
           _voicePrompt = null;
+          _challengeText = null;
+          _flashColor = null;
+          _verificationProgress = 0;
           _message = message;
         });
       }
@@ -304,6 +597,9 @@ class _KioskShellState extends State<KioskShell> {
       if (mounted) {
         setState(() {
           _voicePrompt = null;
+          _challengeText = null;
+          _flashColor = null;
+          _verificationProgress = 0;
           _message = message;
         });
       }
@@ -498,6 +794,7 @@ class _KioskShellState extends State<KioskShell> {
   void dispose() {
     _camera?.dispose();
     _audioRecorder.dispose();
+    _faceDetector.close();
     _tts.stop();
     _baseUrlController.dispose();
     _branchCodeController.dispose();
@@ -731,6 +1028,13 @@ class _ScannerPage extends StatelessWidget {
                 Center(child: CircularProgressIndicator(color: Colors.white)),
           ),
         const _ScannerScrim(),
+        if (state._flashColor != null)
+          IgnorePointer(
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 90),
+              color: state._flashColor!.withValues(alpha: .9),
+            ),
+          ),
         SafeArea(
           child: Padding(
             padding: const EdgeInsets.all(24),
@@ -793,7 +1097,52 @@ class _ScannerPage extends StatelessWidget {
                     ),
                   ),
                 ],
+                if (state._challengeText != null) ...[
+                  const SizedBox(height: 14),
+                  Center(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 18, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(18),
+                        border: Border.all(color: const Color(0xFF38BDF8)),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.verified_user,
+                              color: Color(0xFF0369A1)),
+                          const SizedBox(width: 10),
+                          Flexible(
+                            child: Text(
+                              state._challengeText!,
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                color: Color(0xFF0F172A),
+                                fontSize: 18,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
                 const Spacer(),
+                if (state._busy && state._verificationProgress > 0) ...[
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(999),
+                    child: LinearProgressIndicator(
+                      minHeight: 8,
+                      value: state._verificationProgress,
+                      backgroundColor: Colors.white.withValues(alpha: .28),
+                      color: const Color(0xFF22C55E),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                ],
                 SizedBox(
                   height: 58,
                   child: FilledButton.icon(
