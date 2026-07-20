@@ -1,4 +1,14 @@
-from mongoengine import DateField, DateTimeField, FloatField, IntField, ReferenceField, StringField
+from mongoengine import (
+    BooleanField,
+    DateField,
+    DateTimeField,
+    DictField,
+    FloatField,
+    IntField,
+    ListField,
+    ReferenceField,
+    StringField,
+)
 
 from app.models.base import BaseDocument
 from app.models.branch import Branch
@@ -41,3 +51,18 @@ class Attendance(BaseDocument):
     total_work_minutes = IntField(default=0)
     rejection_reason = StringField()
     selfie_path = StringField()
+    
+    challenge_type = StringField()
+    challenge_result = BooleanField(default=False)
+
+    color_sequence = ListField(StringField())
+
+    face_score = FloatField(default=0.0)
+    liveness_score = FloatField(default=0.0)
+    reflection_score = FloatField(default=0.0)
+    recognition_score = FloatField(default=0.0)
+    confidence_score = FloatField(default=0.0)
+
+    processing_time = FloatField(default=0.0)
+
+    security_audit = DictField(default=dict)
